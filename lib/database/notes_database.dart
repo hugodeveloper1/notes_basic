@@ -59,12 +59,12 @@ class NotesDatabase {
     await prefs.setString(_notesKey, jsonEncode(notesJson));
   }
 
-  /// Elimina una nota
-  Future<void> deleteNote(String id) async {
+  /// Elimina múltiples notas por sus IDs
+  Future<void> deleteNotes(List<String> ids) async {
     final prefs = await SharedPreferences.getInstance();
     final notes = await getNotes();
 
-    notes.removeWhere((n) => n.id == id);
+    notes.removeWhere((n) => ids.contains(n.id));
 
     final notesJson = notes.map((n) => n.toMap()).toList();
     await prefs.setString(_notesKey, jsonEncode(notesJson));

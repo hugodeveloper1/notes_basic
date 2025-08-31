@@ -4,6 +4,7 @@ class NoteModel {
   final String content;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final bool isSelected;
 
   const NoteModel({
     required this.id,
@@ -11,6 +12,7 @@ class NoteModel {
     required this.content,
     required this.createdAt,
     required this.updatedAt,
+    this.isSelected = false,
   });
 
   /// Convierte la nota a un mapa para guardarla en SharedPreferences
@@ -41,6 +43,7 @@ class NoteModel {
     String? content,
     DateTime? createdAt,
     DateTime? updatedAt,
+    bool? isSelected,
   }) {
     return NoteModel(
       id: id ?? this.id,
@@ -48,6 +51,7 @@ class NoteModel {
       content: content ?? this.content,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      isSelected: isSelected ?? this.isSelected,
     );
   }
 }

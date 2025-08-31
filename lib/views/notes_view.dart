@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import '../models/note_model.dart';
 import '../services/notes_services.dart';
@@ -15,6 +17,7 @@ class NotesView extends StatefulWidget {
 class _NotesViewState extends State<NotesView> {
   bool isLoading = true;
   List<NoteModel> notes = const [];
+  bool isDelete = false;
 
   @override
   void initState() {
@@ -35,91 +38,159 @@ class _NotesViewState extends State<NotesView> {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            AppBar(
-              shadowColor: Colors.black12,
-              elevation: 4,
-              backgroundColor: Colors.white,
-              surfaceTintColor: Colors.white,
-              title: const Text('My Notes'),
-            ),
-            Expanded(
-              child:
-                  isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : GridView.builder(
-                        itemCount: notes.length,
-                        padding: const EdgeInsets.all(20),
-                        physics: const BouncingScrollPhysics(),
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              mainAxisSpacing: 20,
-                              crossAxisSpacing: 20,
-                              childAspectRatio: 0.7,
-                            ),
-                        itemBuilder: (_, index) {
-                          final item = notes[index];
-                          return GestureDetector(
-                            onTap: () => _openEditor(note: item),
-                            child: Card(
-                              shadowColor: Colors.black12,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
+      body: WillPopScope(
+        onWillPop: () async {
+          if (isDelete) {
+            final list =
+                notes.map((e) {
+                  return e.copyWith(isSelected: false);
+                }).toList();
+            notes = list;
+            isDelete = false;
+            setState(() {});
+            return false;
+          } else {
+            return false;
+          }
+        },
+        child: SafeArea(
+          child: Column(
+            children: [
+              AppBar(
+                shadowColor: Colors.black12,
+                elevation: 4,
+                backgroundColor: Colors.white,
+                surfaceTintColor: Colors.white,
+                title: const Text('My Notes'),
+              ),
+              Expanded(
+                child:
+                    isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : GridView.builder(
+                          itemCount: notes.length,
+                          padding: const EdgeInsets.all(20),
+                          physics: const BouncingScrollPhysics(),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                mainAxisSpacing: 20,
+                                crossAxisSpacing: 20,
+                                childAspectRatio: 0.7,
                               ),
-                              color: lightGray,
-                              surfaceTintColor: lightGray,
-                              margin: EdgeInsets.zero,
-                              child: Padding(
-                                padding: const EdgeInsets.all(7),
-                                child: Column(
-                                  spacing: 7,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Center(
-                                      child: Text(
-                                        item.title,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: textTheme.bodyLarge,
-                                      ),
-                                    ),
-                                    Expanded(
-                                      child: Text(
-                                        item.content,
-                                        textAlign: TextAlign.start,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: textTheme.bodySmall?.copyWith(
-                                          color: Colors.blueGrey,
+                          itemBuilder: (_, index) {
+                            final item = notes[index];
+
+                            final backgroundCard =
+                                item.isSelected
+                                    ? Colors.amberAccent
+                                    : lightGray;
+
+                            return GestureDetector(
+                              onTap: () {
+                                if (isDelete) {
+                                  itemSelected(item);
+                                } else {
+                                  _openEditor(note: item);
+                                }
+                              },
+                              onLongPress: () async {
+                                itemSelected(item);
+                              },
+                              child: Card(
+                                shadowColor: Colors.black12,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                color: backgroundCard,
+                                surfaceTintColor: backgroundCard,
+                                margin: EdgeInsets.zero,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(7),
+                                  child: Column(
+                                    spacing: 7,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Center(
+                                        child: Text(
+                                          item.title,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: textTheme.bodyLarge,
                                         ),
                                       ),
-                                    ),
-                                    Center(
-                                      child: Text(
-                                        formatDate(item.updatedAt),
-                                        style: textTheme.bodyMedium?.copyWith(
-                                          color: Colors.grey,
+                                      Expanded(
+                                        child: Text(
+                                          item.content,
+                                          textAlign: TextAlign.start,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: textTheme.bodySmall?.copyWith(
+                                            color: Colors.blueGrey,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  ],
+                                      Center(
+                                        child: Text(
+                                          formatDate(item.updatedAt),
+                                          style: textTheme.bodyMedium?.copyWith(
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
-                            ),
-                          );
-                        },
-                      ),
-            ),
-          ],
+                            );
+                          },
+                        ),
+              ),
+            ],
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _openEditor,
-        child: const Icon(Icons.add),
+        onPressed: () async {
+          if (isDelete) {
+            final list = notes.where((e) => e.isSelected).toList();
+            await NotesService().deleteNote(list);
+            _loadNotes();
+            isDelete = false;
+          } else {
+            _openEditor();
+          }
+        },
+        backgroundColor: isDelete ? Colors.red : null,
+        child:
+            isDelete
+                ? const Icon(Icons.delete_outline_rounded, color: Colors.white)
+                : const Icon(Icons.add),
       ),
     );
+  }
+
+  void itemSelected(NoteModel note) {
+    final list =
+        notes.map((e) {
+          if (e.id == note.id) {
+            final isSelected = e.isSelected;
+            return note.copyWith(isSelected: !isSelected);
+          }
+          return e;
+        }).toList();
+
+    notes = list;
+
+    final res = list.where((e) => e.isSelected).toList();
+
+    if (res.isNotEmpty) {
+      isDelete = true;
+    } else {
+      isDelete = false;
+    }
+
+    setState(() {});
   }
 
   /// 📝 Abre el editor de notas para crear o editar
