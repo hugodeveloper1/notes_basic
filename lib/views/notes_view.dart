@@ -5,7 +5,7 @@ import '../models/note_model.dart';
 import '../services/notes_services.dart';
 import 'note_editor_view.dart';
 
-const Color lightGray = Color(0xFFF9F9F9);
+const Color kLightGray = Color(0xFFF9F9F9);
 
 class NotesView extends StatefulWidget {
   const NotesView({super.key});
@@ -17,16 +17,16 @@ class NotesView extends StatefulWidget {
 class _NotesViewState extends State<NotesView> {
   bool isLoading = true;
   List<NoteModel> notes = const [];
-  bool isDelete = false;
+  bool isDeleteMode = false;
 
   @override
   void initState() {
     super.initState();
-    _loadNotes();
+    _fetchNotes();
   }
 
   /// 📥 Obtiene todas las notas almacenadas
-  void _loadNotes() async {
+  void _fetchNotes() async {
     final response = await NotesService().getNotes();
     notes = response;
     isLoading = false;
@@ -39,19 +39,15 @@ class _NotesViewState extends State<NotesView> {
 
     return Scaffold(
       body: WillPopScope(
+        // 🔙 Si está en modo eliminar, al retroceder se desactiva en lugar de cerrar la vista
         onWillPop: () async {
-          if (isDelete) {
-            final list =
-                notes.map((e) {
-                  return e.copyWith(isSelected: false);
-                }).toList();
-            notes = list;
-            isDelete = false;
+          if (isDeleteMode) {
+            notes = notes.map((e) => e.copyWith(isSelected: false)).toList();
+            isDeleteMode = false;
             setState(() {});
             return false;
-          } else {
-            return false;
           }
+          return false;
         },
         child: SafeArea(
           child: Column(
@@ -79,23 +75,23 @@ class _NotesViewState extends State<NotesView> {
                                 childAspectRatio: 0.7,
                               ),
                           itemBuilder: (_, index) {
-                            final item = notes[index];
+                            final note = notes[index];
 
                             final backgroundCard =
-                                item.isSelected
-                                    ? Colors.amberAccent
-                                    : lightGray;
+                                note.isSelected
+                                    ? Color(0xFFC9C9C9)
+                                    : kLightGray;
 
                             return GestureDetector(
                               onTap: () {
-                                if (isDelete) {
-                                  itemSelected(item);
+                                if (isDeleteMode) {
+                                  _toggleSelection(note);
                                 } else {
-                                  _openEditor(note: item);
+                                  _openEditor(note: note);
                                 }
                               },
-                              onLongPress: () async {
-                                itemSelected(item);
+                              onLongPress: () {
+                                _toggleSelection(note);
                               },
                               child: Card(
                                 shadowColor: Colors.black12,
@@ -114,7 +110,7 @@ class _NotesViewState extends State<NotesView> {
                                     children: [
                                       Center(
                                         child: Text(
-                                          item.title,
+                                          note.title,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: textTheme.bodyLarge,
@@ -122,7 +118,7 @@ class _NotesViewState extends State<NotesView> {
                                       ),
                                       Expanded(
                                         child: Text(
-                                          item.content,
+                                          note.content,
                                           textAlign: TextAlign.start,
                                           overflow: TextOverflow.ellipsis,
                                           style: textTheme.bodySmall?.copyWith(
@@ -132,7 +128,7 @@ class _NotesViewState extends State<NotesView> {
                                       ),
                                       Center(
                                         child: Text(
-                                          formatDate(item.updatedAt),
+                                          _formatDate(note.updatedAt),
                                           style: textTheme.bodyMedium?.copyWith(
                                             color: Colors.grey,
                                           ),
@@ -152,44 +148,35 @@ class _NotesViewState extends State<NotesView> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          if (isDelete) {
-            final list = notes.where((e) => e.isSelected).toList();
-            await NotesService().deleteNote(list);
-            _loadNotes();
-            isDelete = false;
+          if (isDeleteMode) {
+            final selectedNotes = notes.where((e) => e.isSelected).toList();
+            await NotesService().deleteNotes(selectedNotes);
+            _fetchNotes();
+            isDeleteMode = false;
           } else {
             _openEditor();
           }
         },
-        backgroundColor: isDelete ? Colors.red : null,
+        backgroundColor: isDeleteMode ? Colors.red : null,
         child:
-            isDelete
+            isDeleteMode
                 ? const Icon(Icons.delete_outline_rounded, color: Colors.white)
                 : const Icon(Icons.add),
       ),
     );
   }
 
-  void itemSelected(NoteModel note) {
-    final list =
+  /// 🔘 Alterna la selección de una nota (para borrado múltiple)
+  void _toggleSelection(NoteModel note) {
+    notes =
         notes.map((e) {
           if (e.id == note.id) {
-            final isSelected = e.isSelected;
-            return note.copyWith(isSelected: !isSelected);
+            return note.copyWith(isSelected: !e.isSelected);
           }
           return e;
         }).toList();
 
-    notes = list;
-
-    final res = list.where((e) => e.isSelected).toList();
-
-    if (res.isNotEmpty) {
-      isDelete = true;
-    } else {
-      isDelete = false;
-    }
-
+    isDeleteMode = notes.any((e) => e.isSelected);
     setState(() {});
   }
 
@@ -199,12 +186,13 @@ class _NotesViewState extends State<NotesView> {
       context,
       MaterialPageRoute(
         builder:
-            (context) => NoteEditorView(note: note, refreshNotes: _loadNotes),
+            (context) => NoteEditorView(note: note, refreshNotes: _fetchNotes),
       ),
     );
   }
 
-  String formatDate(DateTime date) {
+  /// 📅 Formatea la fecha en dd / mm / yy
+  String _formatDate(DateTime date) {
     final day = date.day.toString().padLeft(2, '0');
     final month = date.month.toString().padLeft(2, '0');
     final year = date.year.toString().substring(2);

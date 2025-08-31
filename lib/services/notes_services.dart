@@ -41,7 +41,7 @@ class NotesService {
   }
 
   /// Eliminar una nota
-  Future<void> deleteNote(List<NoteModel> notes) async {
+  Future<void> deleteNotes(List<NoteModel> notes) async {
     final ids = notes.map((e) => e.id).toList();
     await _db.deleteNotes(ids);
   }
